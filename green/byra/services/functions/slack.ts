@@ -11,8 +11,7 @@ export interface CloudWatchAlarmDetail {
 const BEER_EMOJI = "🍺";
 const WARN_EMOJI = "🔥";
 
-const SLACK_WEBHOOK_URL =
-  "https://hooks.slack.com/services/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";
+const SLACK_WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL;
 
 export const handler = async (event: any) => {
   console.log(`Received event: ${JSON.stringify(event)}`);
