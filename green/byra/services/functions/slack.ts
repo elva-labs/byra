@@ -10,6 +10,7 @@ export interface CloudWatchAlarmDetail {
 
 const BEER_EMOJI = "🍺";
 const WARN_EMOJI = "🔥";
+const HAPPY_EMOJI = "🎉";
 
 const SLACK_WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL;
 
