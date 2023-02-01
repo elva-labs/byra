@@ -1,4 +1,5 @@
-import { StackContext, Cron } from "@serverless-stack/resources";
+import * as events from "aws-cdk-lib/aws-events";
+import { StackContext, Cron, EventBus } from "@serverless-stack/resources";
 import {
   ComparisonOperator,
   Metric,
@@ -9,6 +10,9 @@ export function MyStack({ stack }: StackContext) {
   const metric = new Metric({
     namespace: "elva-labs",
     metricName: "beerWeight",
+    dimensionsMap: {
+      service: "byra",
+    },
   });
 
   metric.createAlarm(stack, "BeerAlarm", {
@@ -23,5 +27,26 @@ export function MyStack({ stack }: StackContext) {
   new Cron(stack, "Cron", {
     schedule: "rate(1 minute)",
     job: "../services/functions/lambda.handler",
+  });
+
+  new EventBus(stack, "DefaultEventBus", {
+    cdk: {
+      eventBus: events.EventBus.fromEventBusName(
+        this,
+        "default-bus",
+        "default"
+      ),
+    },
+    rules: {
+      myRule: {
+        pattern: {
+          source: ["aws.cloudwatch"],
+          detailType: ["CloudWatch Alarm State Change"],
+        },
+        targets: {
+          slackService: "../services/functions/slack.handler",
+        },
+      },
+    },
   });
 }

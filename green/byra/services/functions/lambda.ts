@@ -12,7 +12,7 @@ export const lambdaHandler: APIGatewayProxyHandlerV2 = async (_event) => {
   metrics.addMetric(
     "beerWeight",
     MetricUnits.Count,
-    Math.random() * Number(process.env.TRIGGER_VALUE || 2000)
+    Number(process.env.TRIGGER_VALUE || 2000)
   );
 
   return {
