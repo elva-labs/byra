@@ -12,14 +12,18 @@
     "test": "sst bind -- vitest run"
   },
   "devDependencies": {
-    "aws-cdk-lib": "2.50.0",
     "@serverless-stack/cli": "^1.18.4",
     "@serverless-stack/resources": "^1.18.4",
-    "typescript": "^4.9.5",
     "@tsconfig/node16": "^1.0.3",
+    "aws-cdk-lib": "2.50.0",
+    "typescript": "^4.9.5",
     "vitest": "^0.28.3"
   },
   "dependencies": {
+    "@aws-lambda-powertools/logger": "^1.5.1",
+    "@aws-lambda-powertools/metrics": "^1.5.1",
+    "@middy/core": "^4.2.1",
+    "@serverless-stack/core": "^1.18.4",
     "@serverless-stack/node": "^1.18.4"
   },
   "workspaces": [
