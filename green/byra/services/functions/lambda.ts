@@ -1,16 +1,24 @@
 import { APIGatewayProxyHandlerV2 } from "aws-lambda";
-import middy from '@middy/core';
-import { logMetrics, Metrics, MetricUnits } from "@aws-lambda-powertools/metrics";
+import middy from "@middy/core";
+import {
+  logMetrics,
+  Metrics,
+  MetricUnits,
+} from "@aws-lambda-powertools/metrics";
 
-const metrics = new Metrics({ namespace: 'elva-labs', serviceName: 'byra' });
+const metrics = new Metrics({ namespace: "elva-labs", serviceName: "byra" });
 
-export const lambdaHandler: APIGatewayProxyHandlerV2 = async (event) => {
-  metrics.addMetric('beerWeight', MetricUnits.Count, 3245);
+export const lambdaHandler: APIGatewayProxyHandlerV2 = async (_event) => {
+  metrics.addMetric(
+    "beerWeight",
+    MetricUnits.Count,
+    Math.random() * Number(process.env.TRIGGER_VALUE || 2000)
+  );
+
   return {
     statusCode: 200,
-    body: JSON.stringify({ message: 'success' }),
-  }
+    body: JSON.stringify({ message: "success" }),
+  };
 };
 
-export const handler = middy(lambdaHandler)
-    .use(logMetrics(metrics));
+export const handler = middy(lambdaHandler).use(logMetrics(metrics));
