@@ -1,5 +1,5 @@
 import * as events from "aws-cdk-lib/aws-events";
-import { StackContext, Cron, EventBus } from "@serverless-stack/resources";
+import { StackContext, EventBus, Function } from "@serverless-stack/resources";
 import {
   ComparisonOperator,
   Metric,
@@ -24,12 +24,11 @@ export function MyStack({ stack }: StackContext) {
     treatMissingData: TreatMissingData.NOT_BREACHING,
   });
 
-  new Cron(stack, "Cron", {
-    schedule: "rate(1 minute)",
-    job: "../services/functions/lambda.handler",
+  new Function(stack, "PushMetricLambda", {
+    handler: "../services/functions/lambda.handler",
   });
 
-  new EventBus(stack, "DefaultEventBus", {
+  new EventBus(stack, "DefaultEventBusSlackHandler", {
     cdk: {
       eventBus: events.EventBus.fromEventBusName(
         this,
