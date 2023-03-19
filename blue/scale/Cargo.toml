@@ -1,0 +1,12 @@
+[package]
+name = "scale"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name="byra"
+
+[dependencies]
+log = "0.4.17"
+rppal = { version = "0.14.1", feature = ["hal"]}
+
