@@ -8,5 +8,6 @@ name="byra"
 
 [dependencies]
 log = "0.4.17"
-rppal = { version = "0.14.1", feature = ["hal"]}
+rppal = { version = "0.14.1" }
+simple_logger = "4.1.0"
 
