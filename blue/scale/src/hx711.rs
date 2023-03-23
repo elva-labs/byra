@@ -36,6 +36,8 @@ pub enum HX711Error {
 pub struct Config {
     pub dout: InputPin,
     pub dt_sck: OutputPin,
+    pub kg_0: u32,
+    pub kg_1: u32,
 }
 
 pub enum Gain {
@@ -51,6 +53,8 @@ impl Scale {
             dt_sck: c.dt_sck,
             scale: 0_f32,
             offset: 0_f32,
+            kg_0_read: 0_f32,
+            kg_1_read: 0_f32,
         }
     }
 }
@@ -60,6 +64,8 @@ pub struct Scale {
     dt_sck: OutputPin,
     scale: f32,
     offset: f32,
+    kg_0_read: f32,
+    kg_1_read: f32,
 }
 
 /// Default implementaiton for a Byra Scale
@@ -127,7 +133,7 @@ impl HX711 for Scale {
     }
 
     fn calibrate(&mut self) {
-        info!("Calibrating, remove any wight from the scale");
+        info!("Calibrating, remove any weight from the scale");
         thread::sleep(Duration::from_secs(10));
         let kg_0 = self.sample_avg(10);
 
@@ -160,17 +166,10 @@ impl HX711 for Scale {
         let x0 = 516580;
         let kg_1 = 538822;
         let diff = kg_1 - x0;
+
+        // self.scale
         let points_per_gram = diff / 1000;
 
         (read - x0) as f32 / points_per_gram as f32
     }
 }
-
-// /// Convert 24 bit signed integer to i32
-// fn i24_to_i32(x: i32) -> i32 {
-//     if x >= 0x800000 {
-//         x | !0xFFFFFF
-//     } else {
-//         x
-//     }
-// }
