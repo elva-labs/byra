@@ -18,13 +18,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .init()
         .unwrap();
 
-    // Read config path via cli flag or default to some folder...
+    // TODO: read config path from cli input or default
     let settings = Config::builder()
         .add_source(config::File::with_name("config.toml"))
         .build()
         .unwrap();
     let service_settings = settings.try_deserialize::<ServiceConfig>().unwrap();
-
     let gpio = Gpio::new()?;
     let mut scale = Scale::new(HXConfig {
         dt_sck: gpio.get(service_settings.dt_sck)?.into_output(),
