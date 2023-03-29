@@ -1,9 +1,30 @@
+//! The byra-scale is used to read values from load cells (in conjunction with the HX711 module)
+//!
+//! # Examples
+//!
+//! ## Calibrate
+//! This command samples a set of read from the load cells and then outputs the average rate output
+//! for both 0kg and 1kg load.
+//!
+//! ```bash
+//! elva-byra calibrate
+//! ```
+//!
+//! ## Run
+//! As a long lived process
+//!
+//! ```bash
+//! elva-byra
+//! ```
+
 use config::Config;
-use log::{debug, error, info};
+use log::{debug, info};
 use rppal::gpio::Gpio;
 use simple_logger::SimpleLogger;
-use std::thread;
+use std::io::{BufWriter, Write};
 use std::time::Duration;
+
+use byra::output_writer::stream_weight_to_writer;
 
 mod cli_config;
 
@@ -40,6 +61,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     scale.reset();
     info!("{MODULE} reset complete, waiting for first read to become ready...");
 
+    let mut output_writer: Box<dyn Write> = match service_settings.file {
+        None => Box::new(BufWriter::new(std::io::stdout())),
+        Some(f) => Box::new(std::fs::File::open(f)?),
+    };
+
     match std::env::args().nth(1) {
         Some(cmd) => match cmd.as_str() {
             "calibrate" => {
@@ -54,38 +80,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         },
         None => {
-            stream_weight_to_file(&mut scale, service_settings.retry as u32, default_sleep)?;
+            stream_weight_to_writer(
+                &mut scale,
+                service_settings.retry as u32,
+                default_sleep,
+                &mut output_writer,
+            )?;
         }
     };
 
     Ok(())
-}
-
-fn stream_weight_to_file(
-    scale: &mut impl HX711,
-    max_retries: u32,
-    timeout: Duration,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let mut retries = 0;
-
-    loop {
-        match scale.read() {
-            Ok(v) => {
-                debug!("digital_value={v}");
-                info!("kg={:.2}", scale.translate(v) / 1000_f32);
-                // TODO: write output value to stdout or file...
-            }
-            Err(e) => {
-                retries += 1;
-
-                if retries == max_retries {
-                    error!("Reach maximum read retries");
-
-                    return Err(e.into());
-                }
-            }
-        }
-
-        thread::sleep(timeout);
-    }
 }

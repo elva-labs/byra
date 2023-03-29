@@ -19,4 +19,7 @@ pub struct ServiceConfig {
 
     /// Retry limit, if the module doesn't respond before limit the process will panic.
     pub retry: u8,
+
+    /// File
+    pub file: Option<String>,
 }

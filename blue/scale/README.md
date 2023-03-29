@@ -1,10 +1,7 @@
 # Byra Scale
 
-## Build
-
-> Requires rust & docker to be installed.
-
-`cross build --target arm-unknown-linux-gnueabihf`
+Weight cli for the HX711 module (used on pi zero w), the binary outputs scale information 
+to stdout or file on a configured interval.
 
 
 ### Usage
@@ -21,15 +18,24 @@ retry = 3
 
 #### Calibrate
 ```bash
-./scale calibrate
+elva-byra-scale calibrate
 ```
 
 #### Run
 
 ```bash
-./scale
+elva-byra-scale
 ```
 
+## Build
+
+> Requires rust & docker to be installed.
+
+`cross build --target arm-unknown-linux-gnueabihf`
+
+
+
+## Contribute / Dev
 
 ### Copy binary to raspberry
 
@@ -40,4 +46,10 @@ retry = 3
 ```bash
 sudo ip addr add 192.168.7.1/24 dev enp0s20f0u1 # Depending on how you've configured ssh over usb
 cross build --target arm-unknown-linux-gnueabihf && scp target/arm-unknown-linux-gnueabihf/debug/scale pi@192.168.7.2:~/scale
+```
+
+## Docs
+
+```bash
+cargo doc --open --no-deps
 ```
