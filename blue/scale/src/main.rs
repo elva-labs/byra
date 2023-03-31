@@ -38,7 +38,7 @@ static MODULE: &str = "HX711";
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
-    let settings_file = match args.config_file {
+    let settings_file = match args.settings_path {
         Some(file_path) => file_path,
         None => "~/.config/byra/settings.toml".to_string(),
     };
