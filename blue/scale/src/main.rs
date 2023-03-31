@@ -8,18 +8,21 @@
 //! for both 0kg and 1kg load.
 //!
 //! ```bash
-//! elva-byra calibrate
+//! elva-byra-scale --calibrate
 //! ```
 //!
 //! ## Run
 //! As a long lived process
 //!
 //! ```bash
-//! elva-byra
+//! elva-byra # Run using settings from ~/.config/byra/settings.toml
+//!
+//! elva-byra --help
 //! ```
 
+use clap::Parser;
 use config::Config;
-use log::{debug, info};
+use log::info;
 use rppal::gpio::Gpio;
 use simple_logger::SimpleLogger;
 use std::io::{BufWriter, Write};
@@ -27,24 +30,32 @@ use std::time::Duration;
 
 mod cli_config;
 
-use crate::cli_config::ServiceConfig;
+use crate::cli_config::{Args, ServiceConfig};
 use elva_byra_lib::hx711::{Config as HXConfig, Gain, Scale, HX711};
 use elva_byra_lib::output_writer::stream_weight_to_writer;
 
 static MODULE: &str = "HX711";
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    SimpleLogger::new()
-        .with_level(log::LevelFilter::Debug)
-        .init()
-        .unwrap();
-
-    // TODO: read config path from cli input or default
+    let args = Args::parse();
+    let settings_file = match args.config_file {
+        Some(file_path) => file_path,
+        None => "~/.config/byra/settings.toml".to_string(),
+    };
     let settings = Config::builder()
-        .add_source(config::File::with_name("config.toml"))
+        .add_source(config::File::with_name(&settings_file))
         .build()
         .unwrap();
     let service_settings = settings.try_deserialize::<ServiceConfig>().unwrap();
+
+    SimpleLogger::new()
+        .with_level(match args.verbose {
+            true => log::LevelFilter::Debug,
+            false => log::LevelFilter::Warn,
+        })
+        .init()
+        .unwrap();
+    info!("Starting byra-scale, setting up gpio & performing hx711 reset");
 
     // Initiate gpio & scale
     let gpio = Gpio::new()?;
@@ -56,39 +67,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         gain: Gain::G128,
     });
 
-    info!("Starting byra-scale, setting up gpio & performing hx711 reset");
-    debug!("Settings={:?}", service_settings);
-
     scale.reset();
     info!("{MODULE} reset complete, waiting for first read to become ready...");
 
-    let mut output_writer: Box<dyn Write> = match service_settings.file {
+    let mut output_writer: Box<dyn Write> = match service_settings.output_file {
         None => Box::new(BufWriter::new(std::io::stdout())),
         Some(f) => Box::new(std::fs::File::open(f)?),
     };
 
-    match std::env::args().nth(1) {
-        Some(cmd) => match cmd.as_str() {
-            "calibrate" => {
-                let result = scale.calibrate(10);
+    if !args.calibrate {
+        let result = scale.calibrate(10);
 
-                info!("offset={}\ncalibration={}", result.0, result.1);
+        info!("\roffset={}\ncalibration={}", result.0, result.1);
 
-                return Ok(());
-            }
-            _ => {
-                panic!("The given command is not implemented");
-            }
-        },
-        None => {
-            stream_weight_to_writer(
-                &mut scale,
-                service_settings.retry as u32,
-                Duration::from_secs(service_settings.backoff),
-                &mut output_writer,
-            )?;
-        }
-    };
+        return Ok(());
+    }
+
+    stream_weight_to_writer(
+        &mut scale,
+        service_settings.retry as u32,
+        Duration::from_secs(service_settings.backoff),
+        &mut output_writer,
+    )?;
 
     Ok(())
 }

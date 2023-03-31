@@ -1,3 +1,5 @@
+use clap::Parser;
+
 #[derive(serde::Deserialize, Debug)]
 pub struct ServiceConfig {
     /// Data out pin (23)
@@ -9,7 +11,7 @@ pub struct ServiceConfig {
     /// This should be set to the sensor value when the scale is under no pressure.
     pub offset: u32,
 
-    /// This value should be set to the avg.sensor value you find when applying
+    /// This value should be set to the average sensor read/rate you find when applying
     /// 1KG of pressure to the weight.
     pub calibration: u32,
 
@@ -20,6 +22,23 @@ pub struct ServiceConfig {
     /// Retry limit, if the module doesn't respond before limit the process will panic.
     pub retry: u8,
 
-    /// File
-    pub file: Option<String>,
+    /// This is the output file which the scale will stream sensor data to, stdout will be used if
+    /// this setting is unset.
+    pub output_file: Option<String>,
+}
+
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+pub struct Args {
+    #[arg(short, long)]
+    pub name: String,
+
+    #[arg(short, long, default_value_t = false)]
+    pub calibrate: bool,
+
+    #[arg(short, long)]
+    pub config_file: Option<String>,
+
+    #[arg(short, long, default_value_t = false)]
+    pub verbose: bool,
 }
