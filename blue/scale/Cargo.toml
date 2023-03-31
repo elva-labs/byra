@@ -1,12 +1,13 @@
 [package]
-name = "scale"
+name = "elva_byra_scale"
 version = "0.1.0"
 edition = "2021"
 
 [lib]
-name="byra"
+name="elva_byra_lib"
 
 [dependencies]
+chrono = { version ="0.4.24", features= ["serde"] }
 config = "0.13.3"
 log = "0.4.17"
 rppal = { version = "0.14.1" }

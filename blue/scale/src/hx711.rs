@@ -1,14 +1,16 @@
+//! This module includes everything needed to read output from the HX711 and handle the different
+//! types of errors that may occur during communication.
+
 use log::info;
 use rppal::gpio::{InputPin, Level, OutputPin};
 use std::{fmt::Display, thread, time::Duration};
 
-/// Some stuff...
 pub trait HX711 {
     /// Resets ADC (min 60us), default gain after boot is 128.
     fn reset(&mut self);
 
     /// Reads 24bits from ADC & sets gain for future com.
-    fn read(&mut self) -> Result<i32, HX711Error>;
+    fn read(&mut self) -> Result<f32, HX711Error>;
 
     /// Sends a pulse through configured dt_sck pin.
     fn send_pulse(&mut self) -> Result<(), HX711Error>;
@@ -23,6 +25,7 @@ pub trait HX711 {
     fn translate(&self, read: i32) -> f32;
 }
 
+/// This struct reflects the two different errors that could occur when we pull data from the HX11.
 #[derive(Debug)]
 pub struct HX711Error {
     source: HX711ErrorType,
@@ -98,7 +101,7 @@ impl HX711 for Scale {
         self.dt_sck.set_low();
     }
 
-    fn read(&mut self) -> Result<i32, HX711Error> {
+    fn read(&mut self) -> Result<f32, HX711Error> {
         if !self.dout.is_low() {
             return Err(HX711Error::new(HX711ErrorType::DoutNotReady));
         }
@@ -124,7 +127,7 @@ impl HX711 for Scale {
             self.send_pulse()?;
         }
 
-        Ok(buff)
+        Ok(self.translate(buff))
     }
 
     fn send_pulse(&mut self) -> Result<(), HX711Error> {
@@ -152,7 +155,7 @@ impl HX711 for Scale {
             }
         }
 
-        samples.iter().sum::<i32>() as f32 / n as f32
+        samples.iter().sum::<f32>() / n as f32
     }
 
     fn calibrate(&mut self, n: usize) -> (usize, usize) {
@@ -172,5 +175,15 @@ impl HX711 for Scale {
     /// Transforms given digital value to grams, based on default state kg_0 & kg_1 state.
     fn translate(&self, read: i32) -> f32 {
         (read as f32 - self.offset) as f32 / self.points_per_gram as f32
+    }
+}
+
+pub trait MetricOutput {
+    fn as_kg(&self) -> f32;
+}
+
+impl MetricOutput for f32 {
+    fn as_kg(&self) -> f32 {
+        self / 1000_f32
     }
 }

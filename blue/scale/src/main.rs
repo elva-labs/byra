@@ -1,9 +1,10 @@
-//! The byra-scale is used to read values from load cells (in conjunction with the HX711 module)
+//! The byra-scale is used to read values from load cells (in conjunction with the HX711 module).
+//! This binary has only been tested on the raspberry pi zero (w).
 //!
 //! # Examples
 //!
 //! ## Calibrate
-//! This command samples a set of read from the load cells and then outputs the average rate output
+//! This command samples reads from the load cells and then outputs the average rate output
 //! for both 0kg and 1kg load.
 //!
 //! ```bash
@@ -24,12 +25,11 @@ use simple_logger::SimpleLogger;
 use std::io::{BufWriter, Write};
 use std::time::Duration;
 
-use byra::output_writer::stream_weight_to_writer;
-
 mod cli_config;
 
 use crate::cli_config::ServiceConfig;
-use byra::hx711::{Config as HXConfig, Gain, Scale, HX711};
+use elva_byra_lib::hx711::{Config as HXConfig, Gain, Scale, HX711};
+use elva_byra_lib::output_writer::stream_weight_to_writer;
 
 static MODULE: &str = "HX711";
 
@@ -45,6 +45,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .build()
         .unwrap();
     let service_settings = settings.try_deserialize::<ServiceConfig>().unwrap();
+
+    // Initiate gpio & scale
     let gpio = Gpio::new()?;
     let mut scale = Scale::new(HXConfig {
         dt_sck: gpio.get(service_settings.dt_sck)?.into_output(),
@@ -53,7 +55,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         kg_0: service_settings.offset,
         gain: Gain::G128,
     });
-    let default_sleep = Duration::from_secs(service_settings.backoff);
 
     info!("Starting byra-scale, setting up gpio & performing hx711 reset");
     debug!("Settings={:?}", service_settings);
@@ -83,7 +84,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             stream_weight_to_writer(
                 &mut scale,
                 service_settings.retry as u32,
-                default_sleep,
+                Duration::from_secs(service_settings.backoff),
                 &mut output_writer,
             )?;
         }
