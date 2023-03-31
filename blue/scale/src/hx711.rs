@@ -177,13 +177,3 @@ impl HX711 for Scale {
         (read as f32 - self.offset) as f32 / self.points_per_gram as f32
     }
 }
-
-pub trait MetricOutput {
-    fn as_kg(&self) -> f32;
-}
-
-impl MetricOutput for f32 {
-    fn as_kg(&self) -> f32 {
-        self / 1000_f32
-    }
-}

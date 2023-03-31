@@ -22,10 +22,12 @@
 
 use clap::Parser;
 use config::Config;
-use log::info;
+use log::{debug, info};
 use rppal::gpio::Gpio;
 use simple_logger::SimpleLogger;
+use std::env;
 use std::io::{BufWriter, Write};
+use std::path::PathBuf;
 use std::time::Duration;
 
 mod cli_config;
@@ -38,14 +40,30 @@ static MODULE: &str = "HX711";
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
-    let settings_file = match args.settings_path {
+    let settings_file = PathBuf::from(match args.settings_path {
         Some(file_path) => file_path,
-        None => "~/.config/byra/settings.toml".to_string(),
-    };
+        None => format!(
+            "{}/.config/byra/settings.toml",
+            env::var("HOME").expect("Failed to read home dir env (HOME)")
+        ),
+    })
+    .canonicalize()
+    .expect("Failed to resolve configuration file path");
+
+    let settings = settings_file.to_str();
+
+    if settings.is_none() {
+        panic!("failed To read settings from file");
+    }
+
+    let settings = settings.unwrap();
+
+    debug!("Trying to read settings from {}", settings);
+
     let settings = Config::builder()
-        .add_source(config::File::with_name(&settings_file))
+        .add_source(config::File::with_name(settings))
         .build()
-        .unwrap();
+        .unwrap_or_else(|_| panic!("Failed to read settings from {}", settings));
     let service_settings = settings.try_deserialize::<ServiceConfig>().unwrap();
 
     SimpleLogger::new()
@@ -68,14 +86,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     scale.reset();
-    info!("{MODULE} reset complete, waiting for first read to become ready...");
+    info!("{MODULE} reset complete");
 
     let mut output_writer: Box<dyn Write> = match service_settings.output_file {
         None => Box::new(BufWriter::new(std::io::stdout())),
-        Some(f) => Box::new(std::fs::File::open(f)?),
+        Some(f) => Box::new(std::fs::File::create(f)?),
     };
 
-    if !args.calibrate {
+    if args.calibrate {
         let result = scale.calibrate(10);
 
         info!("\roffset={}\ncalibration={}", result.0, result.1);
