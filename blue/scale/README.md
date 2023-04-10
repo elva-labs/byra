@@ -33,8 +33,6 @@ elva-byra-scale
 
 `cross build --target arm-unknown-linux-gnueabihf`
 
-
-
 ## Contribute / Dev
 
 ### Copy binary to raspberry

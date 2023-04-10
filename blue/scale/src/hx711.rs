@@ -18,10 +18,13 @@ pub trait HX711 {
     /// Returns true if dout pin is low, which indicates that data is ready for read.
     fn is_ready(&self) -> bool;
 
+    /// Outputs mean offset & mean 1KG pressure readings
     fn calibrate(&mut self, n: usize) -> (usize, usize);
 
+    /// Takes n consecutive reads and returns the mean reading
     fn sample(&mut self, n: usize) -> f32;
 
+    /// Translate the ADC value to something meaning full, typically grams.
     fn translate(&self, read: i32) -> f32;
 }
 
@@ -146,6 +149,12 @@ impl HX711 for Scale {
         !self.dout.is_low()
     }
 
+    /// Transforms given digital value to grams, based on default state kg_0 & kg_1 state.
+    fn translate(&self, read: i32) -> f32 {
+        // NOTE: might need to cap the sensor value according to manual high/low spec.
+        (read as f32 - self.offset) as f32 / self.points_per_gram as f32
+    }
+
     fn sample(&mut self, n: usize) -> f32 {
         let mut samples = vec![];
 
@@ -170,10 +179,5 @@ impl HX711 for Scale {
         let kg_1 = self.sample(n);
 
         (kg_0 as usize, kg_1 as usize)
-    }
-
-    /// Transforms given digital value to grams, based on default state kg_0 & kg_1 state.
-    fn translate(&self, read: i32) -> f32 {
-        (read as f32 - self.offset) as f32 / self.points_per_gram as f32
     }
 }
