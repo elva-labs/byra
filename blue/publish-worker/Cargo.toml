@@ -12,3 +12,5 @@ serde_json = "1.0.96"
 simple_logger = "4.1.0"
 tokio = { version="1.28.1", features=["full"] }
 elva-byra-scale = { path = "../elva-byra-scale" }
+config = "0.13.3"
+log = "0.4.17"

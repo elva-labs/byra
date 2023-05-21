@@ -1242,7 +1242,9 @@ dependencies = [
 name = "transmisson-worker"
 version = "0.1.0"
 dependencies = [
+ "config",
  "elva-byra-scale",
+ "log",
  "rumqttc",
  "serde",
  "serde_json",
