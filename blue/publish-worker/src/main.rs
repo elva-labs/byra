@@ -26,37 +26,48 @@ async fn publish_worker(client: AsyncClient, settings: Settings) {
     let mut previous_sample: Option<Sample> = None;
 
     loop {
-        match read(&settings.integration_file) {
-            Ok(raw_message) => {
-                let raw_message = String::from_utf8(raw_message)
-                    .expect("Failed to read data from integration file");
-                let sample: Sample = serde_json::from_str(&raw_message)
-                    .expect("Failed to parse data from integration file to a Sample");
-
-                if let Some(previous_sample) = &previous_sample {
-                    let gram_change = (previous_sample.grams - sample.grams).abs();
-
-                    if gram_change < settings.publish_on_diff_gram {
-                        info!("Skipping publish event, sample diff is too small");
-                        time::sleep(time::Duration::from_secs(settings.publish_interval_sec)).await;
-                        continue;
-                    }
-                }
-
-                let res = client
-                    .publish(&settings.subject, QoS::AtLeastOnce, false, raw_message)
-                    .await;
-
-                match res {
-                    Ok(_) => {
-                        info!("Message delivered = {:?}", &sample);
-                        previous_sample = Some(sample);
-                        time::sleep(time::Duration::from_secs(settings.publish_interval_sec)).await;
-                    }
-                    Err(e) => error!("Failed to communicate with IOT core {:?}", e),
-                }
+        time::sleep(time::Duration::from_secs(settings.publish_interval_sec)).await;
+        let integration_file = match read(&settings.integration_file) {
+            Ok(e) => e,
+            Err(e) => {
+                error!("Failed to read from integration file {:?} ", e);
+                continue;
             }
-            Err(e) => error!("Failed to read data from file {:?} ", e),
+        };
+        let raw_message = match String::from_utf8(integration_file) {
+            Ok(m) => m,
+            Err(e) => {
+                error!("Failed to read data from integration file {:?}", e);
+                continue;
+            }
+        };
+        let sample: Sample = match serde_json::from_str(&raw_message) {
+            Ok(s) => s,
+            Err(e) => {
+                error!(
+                    "Failed to parse data from integration file to a Sample {:?}",
+                    e
+                );
+                continue;
+            }
+        };
+
+        if let Some(previous_sample) = &previous_sample {
+            if (previous_sample.grams - sample.grams).abs() < settings.publish_on_diff_gram {
+                info!("Skipping publish event, sample diff is too small");
+                continue;
+            }
+        }
+
+        match client
+            .publish(&settings.subject, QoS::AtLeastOnce, false, raw_message)
+            .await
+        {
+            Ok(_) => {
+                info!("Message delivered = {:?}", &sample);
+                previous_sample = Some(sample);
+            }
+            Err(e) => error!("Failed to communicate with IOT core {:?}", e),
         }
     }
 }
