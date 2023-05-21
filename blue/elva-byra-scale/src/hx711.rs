@@ -152,7 +152,7 @@ impl HX711 for Scale {
     /// Transforms given digital value to grams, based on default state kg_0 & kg_1 state.
     fn translate(&self, read: i32) -> f32 {
         // NOTE: might need to cap the sensor value according to manual high/low spec.
-        (read as f32 - self.offset) as f32 / self.points_per_gram as f32
+        (read as f32 - self.offset) / self.points_per_gram
     }
 
     fn sample(&mut self, n: usize) -> f32 {

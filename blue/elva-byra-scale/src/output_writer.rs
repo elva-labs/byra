@@ -58,8 +58,8 @@ pub fn stream_weight_to_writer(
     }
 }
 
-#[derive(serde::Serialize, Debug)]
-struct Sample {
+#[derive(serde::Serialize, serde::Deserialize, Debug)]
+pub struct Sample {
     /// Time of sample creation
     pub datetime: DateTime<Utc>,
 

@@ -1,0 +1,9 @@
+[Unit]
+Description=Reads data from HX711 and writes last known value to configured target file
+
+[Service]
+ExecStart=byra-byra-scale
+
+[Install]
+WantedBy=multi-user.target
+

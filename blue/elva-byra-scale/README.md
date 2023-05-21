@@ -3,7 +3,6 @@
 Weight cli for the HX711 module (used on pi zero w), the binary outputs scale information 
 to stdout or file on a configured interval.
 
-
 ### Usage
 
 #### Config
@@ -35,9 +34,16 @@ elva-byra-scale
 
 ## Contribute / Dev
 
+
 ### Copy binary to raspberry
 
 > Assuming you've setup ssh over USB & added device to network.
+
+```bash
+sudo ip link set dev <interface> down
+sudo ip addr add 192.168.7.1/24 dev <interface>
+sudo ip link set dev <interface> up
+```
 
 * `scp target/arm-unknown-linux-gnueabihf/{release}/scale pi@192.168.7.2:~/scale`
 
