@@ -30,9 +30,17 @@
 //!```
 
 use clap::Parser;
-use log::info;
+use cli_config::ServiceConfig;
+use elva_byra_lib::output_writer::write_weight_to_sock;
+use log::{debug, error, info, warn};
 use simple_logger::SimpleLogger;
-use std::io::{BufWriter, Write};
+use std::collections::HashMap;
+use std::error::Error;
+use std::net::Shutdown;
+use std::os::unix::net::{UnixListener, UnixStream};
+use std::sync::mpsc::{channel, Receiver};
+use std::sync::{Arc, Mutex};
+use std::thread;
 use std::time::Duration;
 
 mod cli_config;
@@ -41,11 +49,10 @@ mod init;
 use crate::cli_config::Args;
 use crate::init::bootstrap;
 use elva_byra_lib::hx711::HX711;
-use elva_byra_lib::output_writer::stream_weight_to_writer;
 
 static MODULE: &str = "HX711";
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
     let (settings, byra) = bootstrap(&args).expect("Failed to init byra scale");
     let mut byra = byra;
@@ -61,11 +68,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     byra.reset();
     info!("{MODULE} reset complete");
 
-    let mut output_writer: Box<dyn Write> = match settings.output_file {
-        None => Box::new(BufWriter::new(std::io::stdout())),
-        Some(f) => Box::new(std::fs::File::create(f)?),
-    };
-
     if args.calibrate {
         // TODO: pass N via cli
         let result = byra.calibrate(10);
@@ -75,12 +77,105 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
-    stream_weight_to_writer(
-        &mut byra,
-        &mut output_writer,
-        settings.retry,
-        Duration::from_secs(settings.backoff),
-    )?;
+    thread::sleep(Duration::from_secs(1));
 
-    Ok(())
+    let (tx, rx) = channel::<f32>();
+    let server_cfg = settings.clone();
+
+    thread::spawn(move || {
+        server(rx, server_cfg).unwrap();
+    });
+
+    loop {
+        let mut last_value = 0_f32;
+
+        {
+            match byra.read() {
+                Ok(v) => {
+                    last_value = v;
+                    tx.send(v).unwrap();
+                }
+                Err(e) => error!("Failed to update scale reading {}", e),
+            }
+        }
+
+        info!("current value={}", last_value);
+        thread::sleep(Duration::from_secs(settings.backoff));
+    }
+}
+
+fn server(last_read: Receiver<f32>, settings: ServiceConfig) -> Result<(), Box<dyn Error>> {
+    info!("Booting Publisher");
+    match std::fs::remove_file("byra.sock") {
+        Ok(_) => debug!("Removed old socket file"),
+        Err(_) => debug!("No previous socket file exist"),
+    };
+
+    let clients: Arc<Mutex<HashMap<usize, UnixStream>>> = Arc::new(Mutex::new(HashMap::new()));
+    let server_stream = match UnixListener::bind("byra.sock") {
+        Err(_) => panic!("failed to bind socket"),
+        Ok(stream) => stream,
+    };
+    let (tx, rx) = std::sync::mpsc::channel::<usize>();
+    let a_clients = clients.clone();
+
+    // Publish loop
+    thread::spawn(move || loop {
+        thread::sleep(Duration::from_secs(settings.backoff));
+
+        {
+            let next_reading = last_read.recv().unwrap();
+            let mut message_lock = a_clients.lock().expect("Failed to lock client list");
+
+            info!("Notifying listeners n={}", message_lock.len());
+
+            for (id, connection) in message_lock.iter_mut() {
+                match write_weight_to_sock(next_reading, connection) {
+                    Ok(_) => {}
+                    Err(e) => {
+                        warn!("Failed to communicate with client {:?}, dropping client", e);
+                        connection.shutdown(Shutdown::Both).unwrap_or_default();
+                        tx.send(*id).unwrap();
+                    }
+                }
+            }
+        }
+    });
+
+    let b_clients = clients.clone();
+
+    // Remove dangling connections
+    thread::spawn(move || loop {
+        let connection_id = rx.recv().unwrap();
+
+        {
+            let mut d = b_clients.lock().unwrap();
+            d.remove(&connection_id);
+            info!("Removed connection {}", connection_id);
+        }
+    });
+
+    // Client connection loop
+    loop {
+        let (client, _addr) = match server_stream.accept() {
+            Ok(s) => s,
+            Err(e) => {
+                error!(
+                    "Failed to establish connection with incoming listener {:?}",
+                    e
+                );
+                continue;
+            }
+        };
+
+        {
+            let mut clients = clients
+                .lock()
+                .expect("Failed to receive a lock on client list");
+            let size = clients.len() + 1;
+
+            debug!("Registered client {}", size);
+            clients.insert(size, client);
+        }
+    }
 }

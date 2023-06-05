@@ -5,70 +5,70 @@ use elva_byra_lib::output_writer::Sample;
 use log::{error, info};
 use rumqttc::{AsyncClient, EventLoop, Key, MqttOptions, QoS, Transport};
 use simple_logger::SimpleLogger;
-use tokio::{task, time};
+use tokio::{
+    io::{AsyncReadExt, Interest},
+    net::UnixStream,
+    task, time,
+};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let (settings, client, mut eventloop) = bootstrap();
-
     SimpleLogger::new()
         .with_level(log::LevelFilter::Info)
         .init()
         .expect("Failed to init logger");
-    task::spawn(publish_worker(client, settings));
+
+    info!("Bootstrapping configuration");
+
+    let (settings, client, mut eventloop) = bootstrap();
+
+    task::spawn(async move {
+        let mut stream = UnixStream::connect("byra.sock")
+            .await
+            .expect("Failed to connect to byra.sock");
+
+        let mut previous_sample: Option<Sample> = None;
+        let mut buff = vec![0; 512];
+
+        loop {
+            let ready = stream.ready(Interest::READABLE).await.unwrap();
+
+            if !ready.is_readable() {
+                continue;
+            }
+
+            let message_len = stream.read(&mut buff).await.unwrap();
+            let message = String::from_utf8_lossy(&buff[0..message_len]).to_string();
+            let sample: Sample = match serde_json::from_str(&message) {
+                Ok(s) => s,
+                Err(e) => {
+                    error!("Failed to parse message {:?}", e);
+                    continue;
+                }
+            };
+
+            if let Some(previous_sample) = &previous_sample {
+                if (previous_sample.grams - sample.grams).abs() < settings.publish_on_diff_gram {
+                    info!("Skipping publish event, sample diff is too small");
+                    continue;
+                }
+            }
+
+            match client
+                .publish(&settings.subject, QoS::AtLeastOnce, false, message)
+                .await
+            {
+                Ok(_) => {
+                    info!("Message delivered = {:?}", &sample);
+                    previous_sample = Some(sample);
+                }
+                Err(e) => error!("Failed to communicate with IOT core {:?}", e),
+            }
+        }
+    });
 
     loop {
         let _ = eventloop.poll().await.unwrap();
-    }
-}
-
-async fn publish_worker(client: AsyncClient, settings: Settings) {
-    let mut previous_sample: Option<Sample> = None;
-
-    loop {
-        time::sleep(time::Duration::from_secs(settings.publish_interval_sec)).await;
-        let integration_file = match read(&settings.integration_file) {
-            Ok(e) => e,
-            Err(e) => {
-                error!("Failed to read from integration file {:?} ", e);
-                continue;
-            }
-        };
-        let raw_message = match String::from_utf8(integration_file) {
-            Ok(m) => m,
-            Err(e) => {
-                error!("Failed to read data from integration file {:?}", e);
-                continue;
-            }
-        };
-        let sample: Sample = match serde_json::from_str(&raw_message) {
-            Ok(s) => s,
-            Err(e) => {
-                error!(
-                    "Failed to parse data from integration file to a Sample {:?}",
-                    e
-                );
-                continue;
-            }
-        };
-
-        if let Some(previous_sample) = &previous_sample {
-            if (previous_sample.grams - sample.grams).abs() < settings.publish_on_diff_gram {
-                info!("Skipping publish event, sample diff is too small");
-                continue;
-            }
-        }
-
-        match client
-            .publish(&settings.subject, QoS::AtLeastOnce, false, raw_message)
-            .await
-        {
-            Ok(_) => {
-                info!("Message delivered = {:?}", &sample);
-                previous_sample = Some(sample);
-            }
-            Err(e) => error!("Failed to communicate with IOT core {:?}", e),
-        }
     }
 }
 
@@ -115,7 +115,5 @@ struct Settings {
     client_key: String,
     endpoint: String,
     endpoint_port: u16,
-    publish_interval_sec: u64,
     publish_on_diff_gram: f32,
-    integration_file: String,
 }

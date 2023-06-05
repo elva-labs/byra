@@ -1,6 +1,6 @@
 use clap::Parser;
 
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug, Clone)]
 pub struct ServiceConfig {
     /// Data out pin (23)
     pub dout: u8,
