@@ -26,7 +26,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut stream = UnixStream::connect("byra.sock")
             .await
             .expect("Failed to connect to byra.sock");
-
         let mut previous_sample: Option<Sample> = None;
         let mut buff = vec![0; 512];
 
