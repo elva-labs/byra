@@ -127,22 +127,18 @@ fn publisher(last_read: Receiver<f32>, settings: ServiceConfig) -> Result<(), Bo
 
     // Publish loop
     thread::spawn(move || loop {
-        thread::sleep(Duration::from_secs(settings.backoff));
+        let next_reading = last_read.recv().unwrap();
+        let mut message_lock = clients_a.lock().expect("Failed to lock client list");
 
-        {
-            let next_reading = last_read.recv().unwrap();
-            let mut message_lock = clients_a.lock().expect("Failed to lock client list");
+        info!("Notifying listeners n={}", message_lock.len());
 
-            info!("Notifying listeners n={}", message_lock.len());
-
-            for (id, connection) in message_lock.iter_mut() {
-                match write_weight_to_sock(next_reading, connection) {
-                    Ok(_) => {}
-                    Err(e) => {
-                        warn!("Failed to communicate with client {:?}, dropping client", e);
-                        connection.shutdown(Shutdown::Both).unwrap_or_default();
-                        tx.send(*id).unwrap();
-                    }
+        for (id, connection) in message_lock.iter_mut() {
+            match write_weight_to_sock(next_reading, connection) {
+                Ok(_) => {}
+                Err(e) => {
+                    warn!("Failed to communicate with client {:?}, dropping client", e);
+                    connection.shutdown(Shutdown::Both).unwrap_or_default();
+                    tx.send(*id).unwrap();
                 }
             }
         }

@@ -16,3 +16,5 @@ cp elva-byra-scale/byra.service ${TARGET}
 cp elva-byra-iot-worker/byra-iot.service ${TARGET}
 
 zip -r ${TARGET}.zip ${TARGET}
+
+rm -r byra-pkg
