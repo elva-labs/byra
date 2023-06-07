@@ -51,6 +51,7 @@ use crate::init::bootstrap;
 use elva_byra_lib::hx711::HX711;
 
 static MODULE: &str = "HX711";
+static DEFAULT_SOCKET: &str = "/tmp/byra.sock";
 
 fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
@@ -60,7 +61,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     SimpleLogger::new()
         .with_level(match args.verbose {
             true => log::LevelFilter::Debug,
-            false => log::LevelFilter::Warn,
+            false => log::LevelFilter::Info,
         })
         .init()
         .unwrap();
@@ -72,18 +73,18 @@ fn main() -> Result<(), Box<dyn Error>> {
         // TODO: pass N via cli
         let result = byra.calibrate(10);
 
-        info!("\roffset={}\ncalibration={}", result.0, result.1);
+        info!("offset={}\ncalibration={}", result.0, result.1);
 
         return Ok(());
     }
 
     thread::sleep(Duration::from_secs(1));
 
-    let (tx, rx) = channel::<f32>();
+    let (weight_tx, weight_rx) = channel::<f32>();
     let server_cfg = settings.clone();
 
     thread::spawn(move || {
-        server(rx, server_cfg).unwrap();
+        publisher(weight_rx, server_cfg).unwrap();
     });
 
     loop {
@@ -93,7 +94,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             match byra.read() {
                 Ok(v) => {
                     last_value = v;
-                    tx.send(v).unwrap();
+                    weight_tx.send(v).unwrap();
                 }
                 Err(e) => error!("Failed to update scale reading {}", e),
             }
@@ -104,20 +105,25 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 }
 
-fn server(last_read: Receiver<f32>, settings: ServiceConfig) -> Result<(), Box<dyn Error>> {
+fn publisher(last_read: Receiver<f32>, settings: ServiceConfig) -> Result<(), Box<dyn Error>> {
     info!("Booting Publisher");
-    match std::fs::remove_file("byra.sock") {
+
+    let sock_location = settings
+        .socket_location
+        .unwrap_or(DEFAULT_SOCKET.to_string());
+
+    match std::fs::remove_file(&sock_location) {
         Ok(_) => debug!("Removed old socket file"),
         Err(_) => debug!("No previous socket file exist"),
     };
 
     let clients: Arc<Mutex<HashMap<usize, UnixStream>>> = Arc::new(Mutex::new(HashMap::new()));
-    let server_stream = match UnixListener::bind("byra.sock") {
+    let server_stream = match UnixListener::bind(sock_location) {
         Err(_) => panic!("failed to bind socket"),
         Ok(stream) => stream,
     };
-    let (tx, rx) = std::sync::mpsc::channel::<usize>();
-    let a_clients = clients.clone();
+    let (tx, rx) = channel::<usize>();
+    let clients_a = clients.clone();
 
     // Publish loop
     thread::spawn(move || loop {
@@ -125,7 +131,7 @@ fn server(last_read: Receiver<f32>, settings: ServiceConfig) -> Result<(), Box<d
 
         {
             let next_reading = last_read.recv().unwrap();
-            let mut message_lock = a_clients.lock().expect("Failed to lock client list");
+            let mut message_lock = clients_a.lock().expect("Failed to lock client list");
 
             info!("Notifying listeners n={}", message_lock.len());
 
@@ -142,15 +148,16 @@ fn server(last_read: Receiver<f32>, settings: ServiceConfig) -> Result<(), Box<d
         }
     });
 
-    let b_clients = clients.clone();
+    let clients_b = clients.clone();
 
     // Remove dangling connections
     thread::spawn(move || loop {
         let connection_id = rx.recv().unwrap();
 
         {
-            let mut d = b_clients.lock().unwrap();
-            d.remove(&connection_id);
+            let mut clients = clients_b.lock().unwrap();
+
+            clients.remove(&connection_id);
             info!("Removed connection {}", connection_id);
         }
     });

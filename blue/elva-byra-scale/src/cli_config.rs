@@ -25,6 +25,8 @@ pub struct ServiceConfig {
     /// This is the output file which the scale will stream sensor data to, stdout will be used if
     /// this setting is unset.
     pub output_file: Option<String>,
+
+    pub socket_location: Option<String>,
 }
 
 #[derive(Parser)]

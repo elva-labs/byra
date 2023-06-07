@@ -2,7 +2,7 @@ use std::{env, io, path::PathBuf};
 
 use config::Config;
 use elva_byra_lib::hx711::{Config as HXConfig, Gain, Scale};
-use log::debug;
+use log::info;
 use rppal::gpio::Gpio;
 
 use crate::cli_config::{Args, ServiceConfig};
@@ -31,7 +31,7 @@ pub fn bootstrap(args: &Args) -> Result<(ServiceConfig, Scale), Box<dyn std::err
 
     let settings = settings.unwrap();
 
-    debug!("Trying to read settings from {}", settings);
+    info!("Reading settings from {}", settings);
 
     let settings = Config::builder()
         .add_source(config::File::with_name(settings))

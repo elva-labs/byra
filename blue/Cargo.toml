@@ -1,0 +1,2 @@
+[workspace]
+members=["elva-byra-scale", "elva-byra-iot-worker"]

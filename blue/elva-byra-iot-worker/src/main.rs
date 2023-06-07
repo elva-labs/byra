@@ -1,10 +1,9 @@
-use std::fs::read;
-
 use config::Config;
 use elva_byra_lib::output_writer::Sample;
 use log::{error, info};
 use rumqttc::{AsyncClient, EventLoop, Key, MqttOptions, QoS, Transport};
 use simple_logger::SimpleLogger;
+use std::{env, fs::read, path::PathBuf};
 use tokio::{
     io::{AsyncReadExt, Interest},
     net::UnixStream,
@@ -23,9 +22,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (settings, client, mut eventloop) = bootstrap();
 
     task::spawn(async move {
-        let mut stream = UnixStream::connect("byra.sock")
+        // TODO: read from settings
+        let mut stream = UnixStream::connect("/tmp/byra.sock")
             .await
-            .expect("Failed to connect to byra.sock");
+            .expect("Failed to connect to /tmp/byra.sock");
         let mut previous_sample: Option<Sample> = None;
         let mut buff = vec![0; 512];
 
@@ -74,12 +74,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// Reads runtime settings from file & creates a new MQTT client
 /// panics on any type of settings failure.
 fn bootstrap() -> (Settings, AsyncClient, EventLoop) {
+    let settings_path = PathBuf::from(format!(
+        "{}/.config/byra/settings.toml",
+        env::var("HOME").expect("Failed to read home dir env (HOME)")
+    ))
+    .canonicalize()
+    .expect("Failed to resolve configuration file path");
+
     let settings = Config::builder()
-        .add_source(config::File::with_name("tests/config.toml"))
+        .add_source(config::File::with_name(
+            settings_path
+                .to_str()
+                .expect("Failed to str settings input"),
+        ))
         .build()
         .expect("Failed to read boot configuration")
         .try_deserialize::<Settings>()
         .expect("Failed to parse settings config to struct");
+
     let (client, eventloop) = create_mqtt_client(&settings);
 
     (settings, client, eventloop)

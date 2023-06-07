@@ -1,0 +1,10 @@
+[Unit]
+Description=Listens on the socket produced by elva-byra-scale & push stream output to IOT-Core
+
+[Service]
+ExecStart=elva-byra-iot-worker
+User=pi
+
+[Install]
+WantedBy=multi-user.target
+
