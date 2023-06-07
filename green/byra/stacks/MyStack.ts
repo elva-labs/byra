@@ -31,7 +31,7 @@ export function MyStack({ stack }: StackContext) {
   new EventBus(stack, "DefaultEventBusSlackHandler", {
     cdk: {
       eventBus: events.EventBus.fromEventBusName(
-        this,
+        stack,
         "default-bus",
         "default"
       ),
