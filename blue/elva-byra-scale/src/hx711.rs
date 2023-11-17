@@ -1,7 +1,7 @@
 //! This module includes everything needed to read output from the HX711 and handle the different
 //! types of errors that may occur during communication.
 
-use log::info;
+use log::debug;
 use rppal::gpio::{InputPin, Level, OutputPin};
 use std::{fmt::Display, thread, time::Duration};
 
@@ -17,9 +17,6 @@ pub trait HX711 {
 
     /// Returns true if dout pin is low, which indicates that data is ready for read.
     fn is_ready(&self) -> bool;
-
-    /// Outputs mean offset & mean 1KG pressure readings
-    fn calibrate(&mut self, n: usize) -> (usize, usize);
 
     /// Takes n consecutive reads and returns the mean reading
     fn sample(&mut self, n: usize) -> f32;
@@ -152,7 +149,13 @@ impl HX711 for Scale {
     /// Transforms given digital value to grams, based on default state kg_0 & kg_1 state.
     fn translate(&self, read: i32) -> f32 {
         // NOTE: might need to cap the sensor value according to manual high/low spec.
-        (read as f32 - self.offset) / self.points_per_gram
+        let sensor_reading = (read as f32 - self.offset) / self.points_per_gram;
+
+        debug!(
+            "Received sensor value \n\nraw(b):\t\t{read:#b}\nraw(d):\t\t{read}\ntranslated:\t{sensor_reading}"
+        );
+
+        sensor_reading
     }
 
     fn sample(&mut self, n: usize) -> f32 {
@@ -165,19 +168,5 @@ impl HX711 for Scale {
         }
 
         samples.iter().sum::<f32>() / n as f32
-    }
-
-    fn calibrate(&mut self, n: usize) -> (usize, usize) {
-        info!("Calibrating, remove any weight from the scale");
-        thread::sleep(Duration::from_secs(10));
-
-        let kg_0 = self.sample(n);
-
-        info!("Place 1KG on scale");
-        thread::sleep(Duration::from_secs(10));
-
-        let kg_1 = self.sample(n);
-
-        (kg_0 as usize, kg_1 as usize)
     }
 }

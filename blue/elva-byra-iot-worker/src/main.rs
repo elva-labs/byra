@@ -22,12 +22,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (settings, client, mut eventloop) = bootstrap();
 
     task::spawn(async move {
-        // TODO: read from settings
-        let mut stream = UnixStream::connect("/tmp/byra.sock")
-            .await
-            .expect("Failed to connect to /tmp/byra.sock");
-        let mut previous_sample: Option<Sample> = None;
-        let mut buff = vec![0; 512];
+        let stream;
+        let mut buff = vec![0; 128];
+
+        loop {
+            stream = match UnixStream::connect("/tmp/byra.sock").await {
+                Ok(s) => Some(s),
+                Err(e) => {
+                    error!("Failed to connect to /tmp/byra.sock {}", e);
+                    tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+                    continue;
+                }
+            };
+
+            break;
+        }
+
+        let mut stream = stream.unwrap();
 
         loop {
             let ready = stream.ready(Interest::READABLE).await.unwrap();
@@ -41,17 +52,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let sample: Sample = match serde_json::from_str(&message) {
                 Ok(s) => s,
                 Err(e) => {
-                    error!("Failed to parse message {:?}", e);
-                    continue;
+                    error!(
+                        "Failed to parse message {:?}, byra sacle process is likely down",
+                        e
+                    );
+
+                    return;
                 }
             };
-
-            if let Some(previous_sample) = &previous_sample {
-                if (previous_sample.grams - sample.grams).abs() < settings.publish_on_diff_gram {
-                    info!("Skipping publish event, sample diff is too small");
-                    continue;
-                }
-            }
 
             match client
                 .publish(&settings.subject, QoS::AtLeastOnce, false, message)
@@ -59,7 +67,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             {
                 Ok(_) => {
                     info!("Message delivered = {:?}", &sample);
-                    previous_sample = Some(sample);
                 }
                 Err(e) => error!("Failed to communicate with IOT core {:?}", e),
             }
@@ -126,5 +133,4 @@ struct Settings {
     client_key: String,
     endpoint: String,
     endpoint_port: u16,
-    publish_on_diff_gram: f32,
 }

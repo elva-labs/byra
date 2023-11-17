@@ -12,13 +12,14 @@ use std::os::unix::net::UnixStream;
 /// The output is always written to the same line using \r, which means that
 /// the output writer can't be used as a history-file.
 pub fn write_weight_to_sock(weight: f32, writer: &mut UnixStream) -> Result<(), Box<dyn Error>> {
-    let sample = Sample {
-        grams: weight,
-        // TODO: set on read
-        datetime: Utc::now(),
-    };
-
-    let data = format!("\r{}", serde_json::to_string(&sample)?.trim());
+    let data = format!(
+        "\r{}",
+        serde_json::to_string(&Sample {
+            grams: weight,
+            datetime: Utc::now(),
+        })?
+        .trim()
+    );
 
     writer.write_all(data.as_bytes())?;
 

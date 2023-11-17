@@ -23,7 +23,7 @@ elva-byra-scale calibrate
 #### Run
 
 ```bash
-elva-byra-scale
+elva-byra-scale -v
 ```
 
 ## Build

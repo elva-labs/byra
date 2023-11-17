@@ -66,18 +66,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         .init()
         .unwrap();
     info!("Starting byra-scale, setting up gpio & performing hx711 reset");
+
     byra.reset();
+
     info!("{MODULE} reset complete");
-
-    if args.calibrate {
-        // TODO: pass N via cli
-        let result = byra.calibrate(10);
-
-        info!("offset={}\ncalibration={}", result.0, result.1);
-
-        return Ok(());
-    }
-
     thread::sleep(Duration::from_secs(1));
 
     let (weight_tx, weight_rx) = channel::<f32>();
@@ -119,15 +111,19 @@ fn publisher(last_read: Receiver<f32>, settings: ServiceConfig) -> Result<(), Bo
 
     let clients: Arc<Mutex<HashMap<usize, UnixStream>>> = Arc::new(Mutex::new(HashMap::new()));
     let server_stream = match UnixListener::bind(sock_location) {
-        Err(_) => panic!("failed to bind socket"),
-        Ok(stream) => stream,
+        Err(err) => panic!("failed to bind socket {:?}", err),
+        Ok(stream) => {
+            debug!("Created new socket binding");
+
+            stream
+        }
     };
     let (tx, rx) = channel::<usize>();
     let clients_a = clients.clone();
 
     // Publish loop
     thread::spawn(move || loop {
-        let next_reading = last_read.recv().unwrap();
+        let next_reading = last_read.recv().expect("Failed to recevie last reading");
         let mut message_lock = clients_a.lock().expect("Failed to lock client list");
 
         info!("Notifying listeners n={}", message_lock.len());
@@ -148,10 +144,12 @@ fn publisher(last_read: Receiver<f32>, settings: ServiceConfig) -> Result<(), Bo
 
     // Remove dangling connections
     thread::spawn(move || loop {
-        let connection_id = rx.recv().unwrap();
+        let connection_id = rx
+            .recv()
+            .expect("Couldn't read connection id from disconnect-list");
 
         {
-            let mut clients = clients_b.lock().unwrap();
+            let mut clients = clients_b.lock().expect("Couldn't lock client map");
 
             clients.remove(&connection_id);
             info!("Removed connection {}", connection_id);

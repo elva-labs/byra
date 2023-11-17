@@ -32,10 +32,6 @@ pub struct ServiceConfig {
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 pub struct Args {
-    /// Determines if the process should run calibrate or read -mode
-    #[arg(short, long, default_value_t = false)]
-    pub calibrate: bool,
-
     /// Target configuration file, tries to read `~/.config/byra/scale/settings.toml` by default
     #[arg(short, long)]
     pub settings_path: Option<String>,

@@ -16,6 +16,7 @@ const SLACK_WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL ?? "n/a";
 
 export const handler = async (event: any) => {
   console.log(`Received event: ${JSON.stringify(event)}`);
+
   const alarmDetail = event.detail as CloudWatchAlarmDetail;
 
   await new IncomingWebhook(SLACK_WEBHOOK_URL).send({
