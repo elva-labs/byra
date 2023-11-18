@@ -19,9 +19,9 @@ export function MyStack({ stack }: StackContext) {
     alarmName: "BeerAlarm",
     alarmDescription: "Alarm when beer weight is too low",
     comparisonOperator: ComparisonOperator.LESS_THAN_THRESHOLD,
-    evaluationPeriods: 1,
-    threshold: 1000,
-    treatMissingData: TreatMissingData.NOT_BREACHING,
+    evaluationPeriods: 2,
+    threshold: 10000,
+    treatMissingData: TreatMissingData.IGNORE,
   });
 
   new Function(stack, "PushMetricLambda", {
