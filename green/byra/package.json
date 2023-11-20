@@ -25,7 +25,8 @@
     "@middy/core": "^4.2.1",
     "@serverless-stack/core": "^1.18.4",
     "@serverless-stack/node": "^1.18.4",
-    "@slack/webhook": "^6.1.0"
+    "@slack/webhook": "^6.1.0",
+    "cdk-iot-core-certificates": "^1.0.461"
   },
   "workspaces": [
     "services"
