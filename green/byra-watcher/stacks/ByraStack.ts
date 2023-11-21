@@ -1,6 +1,6 @@
 import * as events from "aws-cdk-lib/aws-events";
 import * as iot from "aws-cdk-lib/aws-iot";
-import { StackContext, EventBus, Function } from "@serverless-stack/resources";
+import { StackContext, EventBus, Function, Config } from "sst/constructs";
 import { ThingWithCert } from 'cdk-iot-core-certificates';
 import {
   ComparisonOperator,
@@ -10,19 +10,19 @@ import {
 import { CfnOutput, Duration } from "aws-cdk-lib";
 
 export function ByraStack({ stack }: StackContext) {
+  const SLACK_URL = new Config.Secret(stack, 'SLACK_URL')
+
   const metricPushLambda = new Function(stack, "PushMetricLambda", {
-    handler: "../services/functions/lambda.handler",
+    handler: "./src/lambda.handler",
   })
 
   new iot.CfnTopicRule(stack, 'ByraIotHandler', {
-    ruleName: 'weightListener', topicRulePayload: {
-      actions: [
-        {
-          lambda: {
-            functionArn: metricPushLambda.functionArn
-          }
-        },
-      ],
+    topicRulePayload: {
+      actions: [{
+        lambda: {
+          functionArn: metricPushLambda.functionArn
+        }
+      }],
       ruleDisabled: false,
       sql: "SELECT * FROM 'byra/weight'",
     },
@@ -35,7 +35,7 @@ export function ByraStack({ stack }: StackContext) {
   });
 
   const ByraCrtPolicy = new iot.CfnPolicy(stack, 'ByraIotPolicy', {
-    policyName: 'byra-iot-commnication-policy',
+    policyName: 'byra-iot-commnication-policy-01',
     policyDocument: {
       Version: '2012-10-17',
       Statement: [
@@ -49,7 +49,6 @@ export function ByraStack({ stack }: StackContext) {
     }
   })
 
-  // Attach the policy to the certificate
   new iot.CfnPolicyPrincipalAttachment(
     stack,
     'ByraPolicyPrincipalAttachment',
@@ -93,26 +92,30 @@ export function ByraStack({ stack }: StackContext) {
           detailType: ["CloudWatch Alarm State Change"],
         },
         targets: {
-          slackService: "../services/functions/slack.handler",
+          slackService: {
+            function: {
+              handler: "./src/slack.handler",
+              bind: [SLACK_URL]
+            }
+          },
         },
       },
     },
   });
 
-
-  new CfnOutput(stack, 'Output-ThingArn', {
+  new CfnOutput(stack, 'Byra01Thing', {
     value: thingArn,
   });
 
-  new CfnOutput(stack, 'Output-CertId', {
+  new CfnOutput(stack, 'CertId', {
     value: certId,
   });
 
-  new CfnOutput(stack, 'Output-CertPem', {
+  new CfnOutput(stack, 'CertPem', {
     value: certPem,
   });
 
-  new CfnOutput(stack, 'Output-PrivKey', {
+  new CfnOutput(stack, 'PrivKey', {
     value: privKey,
   });
 }

@@ -1,4 +1,6 @@
 import { IncomingWebhook } from "@slack/webhook";
+import { EventBridgeHandler } from "aws-lambda";
+import { Config } from "sst/node/config";
 
 export interface CloudWatchAlarmDetail {
   state: {
@@ -12,16 +14,13 @@ const BEER_EMOJI = "🍺";
 const WARN_EMOJI = "🔥";
 const HAPPY_EMOJI = "🎉";
 
-const SLACK_WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL ?? "n/a";
 
-export const handler = async (event: any) => {
-  console.log(`Received event: ${JSON.stringify(event)}`);
+export const handler: EventBridgeHandler<'msg', CloudWatchAlarmDetail, void> = async (event) => {
+  console.info(`Received event: ${JSON.stringify(event)}`);
 
-  const alarmDetail = event.detail as CloudWatchAlarmDetail;
-
-  await new IncomingWebhook(SLACK_WEBHOOK_URL).send({
+  await new IncomingWebhook(Config.SLACK_URL).send({
     text:
-      alarmDetail.state.value === "ALARM"
+      event.detail.state.value === "ALARM"
         ? `${WARN_EMOJI} CRITICAL: ${BEER_EMOJI} Beer count is low`
         : `${HAPPY_EMOJI} ALL GOOD: ${BEER_EMOJI} We have beer!`,
   });
