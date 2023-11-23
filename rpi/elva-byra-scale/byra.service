@@ -2,9 +2,8 @@
 Description=Reads data from HX711 and writes last known value to configured target file
 
 [Service]
-ExecStart=elva-byra-scale
+ExecStart=/usr/bin/elva-byra-scale --verbose
 User=pi
 
 [Install]
 WantedBy=multi-user.target
-
