@@ -1,33 +1,11 @@
 # Byra 
 
-> Hackathon no.1
+This project exists to investigate a smart fridge POC, primarily for fun and educational purposes.
 
-## Goal
-Send a notification to the given service integration (Wrapped by Lambda) when our
-fridge (embedded IOT) sensor registers a low beer weight.
+* On-chip processes can be found in `~/rpi`
+* AWS integrations and related infra can be found in `~/byra-watcher`
 
-## Teams
+This project is explained in more detail in [this post](...).
 
-### Red
-* Anders
-* Adam
-
-### Blue
-* Tobias
-* Olof
-* Alex
-* (Oscar)
-
-### Green
-* Sebastian
-* Johan
-* Joel
-* (Oscar)
-
-
-## Guidelines
-
-* Use AWS services
-* Rename your project folder when you see fit
-* KISS
-
+> The goal is to send a notification to the given service integration (Wrapped by Lambda) when our
+> fridge (embedded IOT) sensor registers a low beer weight.
